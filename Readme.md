@@ -63,9 +63,20 @@ Problem: Single process. No model parallel.
 
 So the substitute of DP is the Distributed Data Parallel
 
+**Some Concept:**
+
+**Node:** Stands for compute node sometimes can be considered as server.
+
+**Global_rank:** Process Number.
+
+**Local_rank:** Gpu id number.
+
+**World_size:** How many gpus total in all gpus.
+
 DDP has two way to be deployed.
 
 ### 3.1 One node with multiple gpu
+
 It's basically the same idea.
 
 The difference between DDP and DP is to init_process_group and mp.spawn()
@@ -121,7 +132,7 @@ Simple example:
 
 Assume we have 2 nodes and each node has 4 gpus.
 
-Then we have a world_size = nodes*gpu_per_nodes =2*4=8
+Then we have a world_size = nodes * gpu_per_nodes =2 * 4=8
 
 Each node will run 4 process:
 
@@ -174,7 +185,7 @@ def train(rank, world_size, node_rank,gpus_per_node,backend='nccl'):
 
 ``` 
 def setup(rank, world_size, backend='nccl'):
-    os.environ['MASTER_ADDR'] = '10.113.13.77'  # Main Node IP
+    os.environ['MASTER_ADDR'] = MASTER_ADDR  # Main Node IP You should set by yourself.
     os.environ['MASTER_PORT'] = '12355'     # Main Node Port for TCP
     dist.init_process_group(backend, rank=rank, world_size=world_size)
 ``` 
@@ -351,3 +362,81 @@ sbatch ddp_job.sh
 ## 7. Docker for DDP
 
 Continue
+
+## 8. PipeLine Parallelism
+
+Continue
+
+## 9. How to use code
+
+### DP_SAMPLE
+```
+python DP_SAMPLE.py
+```
+### DDP_SAMPLE_SINGLE
+```
+python DDP_SAMPLE_SINGLE.py
+```
+### DDP_SAMPLE_MULTI.py
+```
+NCCL_DEBUG=INFO NODE_RANK=0 python DDP_SAMPLE_MULTI.py #on Node 0
+
+NCCL_DEBUG=INFO NODE_RANK=1 python DDP_SAMPLE_MULTI.py #on Node 0
+```
+### DDP_SAMPLE_SINGLE_CMD
+```
+CUDA_VISIBLE_DEVICES="0,1,2,3" \
+NCCL_DEBUG=INFO \
+torchrun \
+        --nproc_per_node=4 \
+        --nnodes=1 \
+        --node_rank=0 \
+        --master_addr=localhost \
+        --master_port=12355 \
+        --standalone \
+        DDP_SAMPLE_SINGLE_CMD.py \
+        --nnode 1
+```
+
+### DDP_SAMPLE_MULTI_ELASTIC
+Node 0:
+```
+CUDA_VISIBLE_DEVICES="0,1,2,3" \
+NCCL_DEBUG=INFO \
+torchrun \
+        --nproc_per_node=4 \
+        --nnodes=2 \
+        --node_rank=0 \
+        --master_addr=MASTER_ADDR \
+        --master_port=12355 \
+        DDP_SAMPLE_MULTI_ELASTIC.py \
+        --nnode 0
+``` 
+
+Node 1:
+```
+CUDA_VISIBLE_DEVICES="0,1,2,3" \
+NCCL_DEBUG=INFO \
+torchrun \
+        --nproc_per_node=4 \
+        --nnodes=2 \
+        --node_rank=1 \
+        --master_addr=MASTER_ADDR \
+        --master_port=12355 \
+        DDP_SAMPLE_MULTI_ELASTIC.py \
+        --nnode 1
+``` 
+
+**Extra Note for this one**: Before you start the python script, a couple of things you should do.
+
+1. You should first use ifconfig to check Network Interface Card" (NIC) number(which usually is eth0, eth1, eth2)
+2. According to your NIC number, you should set env variable NCCL_SOCKET_IFNAME= YOUR_NIC_NUMBER
+3. Make sure you are working on the same env(I mean conda here) to start the script.
+4. Make sure the port(MASTER_PORT) is open and able to do the TCP communication.
+
+## Reference
+
+https://blog.csdn.net/weixin_42437114/article/details/127590671 # Chinese blog
+
+https://pytorch.org/tutorials/intermediate/ddp_tutorial.html # Official tutorial
+
